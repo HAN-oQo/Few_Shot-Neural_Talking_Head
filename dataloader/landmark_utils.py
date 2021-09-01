@@ -1,14 +1,15 @@
 # preprocessing code is from: https://github.com/vincent-thevenin/Realistic-Neural-Talking-Head-Models/blob/save_disc/dataset/preprocess.py
 import torch
 import os
-from datetime import datetime
+
 import numpy as np
 import cv2
-
+from torchvision import transforms
 from torchvision.utils import save_image
 from tqdm import tqdm
 import face_alignment
 from matplotlib import pyplot as plt
+from PIL import Image
 
 def select_frame(video_path, num_images):
     cap = cv2.VideoCapture(video_path)
@@ -210,3 +211,108 @@ def generate_cropped_landmarks(frames_list, face_aligner, pad=50):
     
     
     return frame_landmark_list
+
+
+def generate_video_landmarks(cap, device, pad):
+    """Input: cap a cv2.VideoCapture object, device the torch.device, 
+pad the distance in pixel from border to face
+output: x the camera output, g_y the corresponding landmark"""
+   
+    #Get webcam image
+    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device= device)
+    no_pic = True
+    
+    while(no_pic == True):
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+        if ret:
+            RGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frames_list = [RGB]
+
+
+            #Create landmark for face
+            frame_landmark_list = []
+
+            for i in range(len(frames_list)):
+                try:
+                    input = frames_list[i]
+                    preds = fa.get_landmarks(input)[0]
+
+                    input = crop_and_reshape_img(input, preds, pad=pad)
+                    preds = crop_and_reshape_preds(preds, pad=pad)
+
+                    dpi = 100
+                    fig = plt.figure(figsize=(256/dpi, 256/dpi), dpi = dpi)
+                    ax = fig.add_subplot(1,1,1)
+                    ax.imshow(np.ones(input.shape))
+                    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
+                    #chin
+                    ax.plot(preds[0:17,0],preds[0:17,1],marker='',markersize=5,linestyle='-',color='green',lw=2)
+                    #left and right eyebrow
+                    ax.plot(preds[17:22,0],preds[17:22,1],marker='',markersize=5,linestyle='-',color='orange',lw=2)
+                    ax.plot(preds[22:27,0],preds[22:27,1],marker='',markersize=5,linestyle='-',color='orange',lw=2)
+                    #nose
+                    ax.plot(preds[27:31,0],preds[27:31,1],marker='',markersize=5,linestyle='-',color='blue',lw=2)
+                    ax.plot(preds[31:36,0],preds[31:36,1],marker='',markersize=5,linestyle='-',color='blue',lw=2)
+                    #left and right eye
+                    ax.plot(preds[36:42,0],preds[36:42,1],marker='',markersize=5,linestyle='-',color='red',lw=2)
+                    ax.plot(preds[42:48,0],preds[42:48,1],marker='',markersize=5,linestyle='-',color='red',lw=2)
+                    #outer and inner lip
+                    ax.plot(preds[48:60,0],preds[48:60,1],marker='',markersize=5,linestyle='-',color='purple',lw=2)
+                    ax.plot(preds[60:68,0],preds[60:68,1],marker='',markersize=5,linestyle='-',color='pink',lw=2) 
+                    ax.axis('off')
+
+                    fig.canvas.draw()
+
+                    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+                    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+                    frame_landmark_list.append((input, data))
+                    plt.close(fig)
+                    no_pic = False
+                except:
+                    print('Error: Video corrupted or no landmarks visible')
+        else:
+            break
+    if ret:
+        all_transforms = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=(0.5,0.5,0.5),
+                                std=(0.5,0.5,0.5))
+        ])
+        # frame_mark = torch.from_numpy(np.array(frame_landmark_list)).type(dtype = torch.float) #K,2,256,256,3
+        img_list  = [frame_landmark_list[i][0] for i in range(len(frame_landmark_list))]
+        landmark_list = [frame_landmark_list[i][1] for i in range(len(frame_landmark_list))]
+
+        if len(img_list) != 1 or len(landmark_list) != 1:
+            raise(RuntimeError("more than 1 img, 1 lanmark in 1 frame"))
+
+        img = cv2toPIL(img_list[0])
+        landmark = cv2toPIL(landmark_list[0])
+
+        x = all_transforms(img)
+        g_y = all_transforms(landmark)
+        # frame_mark = frame_mark.transpose(2,4).to(device) #K,2,3,256,256
+
+        # x = frame_mark[0,0].to(device)
+        # g_y = frame_mark[0,1].to(device)
+    else:
+        x = g_y = None
+    
+    return x,g_y,ret
+
+
+def cv2toPIL(img):
+
+    cv2_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    pil_image=Image.fromarray(cv2_img)
+
+    return pil_image
+
+def PILtocv2(img):
+
+    numpy_image=np.array(img) 
+    cv2_image=cv2.cvtColor(numpy_image, cv2.COLOR_RGB2BGR) 
+
+    return cv2_image

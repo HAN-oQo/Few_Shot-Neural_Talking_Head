@@ -9,7 +9,7 @@ from training.training import Trainer
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
+CUDA_LAUNCH_BLOCKKING =1
 # Get config file from command line arguments
 if len(sys.argv) != 2:
     raise(RuntimeError("Wrong arguments, use python main.py <config_path>"))
@@ -30,6 +30,7 @@ if torch.cuda.is_available():
 else:
     device = 'cpu'
 
+print(device)
 
 if config["path_to_data"] == "":
     raise(RuntimeError("Path to data not specified. Modify path_to_data attribute in config to point to data."))
@@ -64,14 +65,18 @@ if config["dataset"] == "Voxceleb2":
 
     if config["train"] == 1:
         train = True
+        finetuning = False
         training = config["training"]
         batch_size = training["batch_size"]
     elif config["train"] == 2:
         train = True
+        finetuning = True
         training = config["finetuning"]
         batch_size = training["batch_size"]
     else:
         train = False
+        finetuning = True
+        training = config["finetuning"]
         batch_size = test["batch_size"]
 else:
     raise(RuntimeError("Requested Dataset unfound"))
@@ -79,6 +84,7 @@ else:
 
 trainer = Trainer(device, 
                 train= train,
+                finetuning = finetuning,
                 directory = directory,
                 dataset = config["dataset"],
                 path_to_data = path_to_data,
@@ -87,6 +93,7 @@ trainer = Trainer(device,
                 path_to_finetuning_data = path_to_finetuning_data,
                 meta_learned_path = meta_learned_path,
                 meta_learned_model_path = meta_learned_model_path,
+                num_vid = training["num_vid"],
                 num_epoch = training["num_epoch"],
                 resume_epoch = training["resume_epoch"],
                 restored_model_path = training["restored_model_path"],
@@ -106,15 +113,15 @@ trainer = Trainer(device,
                 print_freq = training["print_freq"],
                 sample_freq = training["sample_freq"],
                 model_save_freq = training["model_save_freq"],
-                test_path = test["test_path"],
+                test_video_path = test["test_video_path"],
                 test_model_path = test["test_model_path"])
 
 
 if config["train"] == 1:
-    Trainer.train()
+    trainer.train()
 
 elif config["train"] ==2:
-    Trainer.finetune()
+    trainer.finetune()
 else:
-    Trainer.test()
+    trainer.test()
     

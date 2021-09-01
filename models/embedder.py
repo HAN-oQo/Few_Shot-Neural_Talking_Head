@@ -41,7 +41,7 @@ class Embedder(nn.Module):
     def forward(self, img, landmark):
         new_input = torch.cat((img, landmark), dim = 1)
         new_input = self.init_padding(new_input)
-
+        # print(new_input.size())
         out = self.emb(new_input)
         out = out.view(out.size(0), 512, 1)
         return out

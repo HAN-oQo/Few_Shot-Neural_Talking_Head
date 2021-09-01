@@ -4,12 +4,12 @@ from models.blocks import *
 
 class Discriminator(nn.Module):
     
-    def __init__(self, batch_size= 16, curr_size = 224, ideal_size=256, fine_tuning = False, e_finetuning = None, pool_mode = "sum"):
+    def __init__(self, batch_size= 16, curr_size = 224, ideal_size=256, fine_tuning = False,  pool_mode = "sum"):
         super(Discriminator, self).__init__()
         self.batch_size = batch_size
 
         self.fine_tuning = fine_tuning
-        self.e_finetuning = None
+        # self.e_finetuning = None
         self.w_prime = nn.Parameter(torch.randn(512, 1))
         
         self.W_i = nn.Parameter(torch.randn(512, self.batch_size))
@@ -35,9 +35,9 @@ class Discriminator(nn.Module):
     def load_W_i(self, W_i):
         self.W_i.data = self.LeakyReLU(W_i)
     
-    def init_finetuning(self):
+    def init_finetuning(self, e_finetuning):
         if self.fine_tuning:
-            self.w_prime = nn.Parameter(self.w_0 + torch.mean(self.e_finetuning, dim=0))
+            self.w_prime = nn.Parameter(self.w_0 + torch.mean(e_finetuning, dim=0))
     
     def forward(self, img, landmark):
         B = img.size(0)
@@ -53,9 +53,9 @@ class Discriminator(nn.Module):
         out5 = self.downsample4(out4)
         out6 = self.downsample5(out5)
         out7 = self.additional_residual(out6)
-        out = self.sum_pooling(out7)
-        out = self.ReLU(out)                #output: B, 512, 1,1
-        out = out.view(-1, 512, 1)          #output: B, 512, 1
+        out8 = self.sum_pooling(out7)
+        out9 = self.ReLU(out8)                #output: B, 512, 1,1
+        out = out9.view(-1, 512, 1)          #output: B, 512, 1
 
         if self.fine_tuning:
             score = torch.bmm(out.permute(0, 2, 1), (self.w_prime.unsqueeze(0).expand(B, 512, 1))) + self.b

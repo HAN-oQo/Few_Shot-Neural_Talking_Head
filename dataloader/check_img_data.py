@@ -1,27 +1,21 @@
 import os
 import shutil
+from tqdm import tqdm
 
-data = '../data'
+data_path = '../processed_data'
 K = 8
 
+def check_img_length(K, data_path):
+    for id in tqdm(os.listdir(data_path)):
+        vid_id_path = os.path.join(data_path, id)
+        img_path = os.path.join(vid_id_path, "img")
+        landmark_path = os.path.join(vid_id_path, "landmark")
 
-for person_id in os.listdir(data):
-    for video_id in os.listdir(os.path.join(data, person_id)):
-        for video_num in os.listdir(os.path.join(data, person_id, video_id)):
-            check = len(os.listdir(os.path.join(data, person_id, video_id, video_num, 'img')))
-            if check != K:
-                print("Wrong")
-                print(os.path.join(data, person_id, video_id, video_num, 'img'))
-                print(check)
-                if check == 0:
-                    print('remove ', os.path.join(data, person_id, video_id, video_num))
-                    shutil.rmtree(os.path.join(data, person_id, video_id, video_num))
-                
+        if len(os.listdir(img_path)) != K:
+            print("wrong image length!")
+            print(img_path)
+        if len(os.listdir(landmark_path)) != K:
+            print("wrong image length!")
+            print(landmark_path)
 
-for person_id in os.listdir(data):
-    for video_id in os.listdir(os.path.join(data, person_id)):
-        if len(os.listdir(os.path.join(data, person_id, video_id))) ==1 :
-            pass
-        else:
-            print(os.path.join(data, person_id, video_id))
-            print(len(os.listdir(os.path.join(data, person_id, video_id))))
+# check_img_length(K, data_path)

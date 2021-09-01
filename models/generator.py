@@ -6,7 +6,7 @@ import math
 
 class Generator(nn.Module):
 
-    def __init__(self, curr_size=224, ideal_size=256, bottleneck_num = 5,  fine_tuning= False, e_finetuning = None ):
+    def __init__(self, curr_size=224, ideal_size=256, bottleneck_num = 5,  fine_tuning= False ):
         super(Generator, self).__init__()
         
         slice_idx = [0]
@@ -23,7 +23,7 @@ class Generator(nn.Module):
         self.psi = nn.Parameter(torch.randn(self.P_len, 512)) #used in fine_tuning stage
 
         self.fine_tuning = fine_tuning
-        self.e_finetuning = e_finetuning
+        # self.e_finetuning = e_finetuning
 
 
         self.init_padding = Padding(curr_size=curr_size, ideal = ideal_size)
@@ -80,9 +80,9 @@ class Generator(nn.Module):
 
 
 
-    def init_finetuning(self):
+    def init_finetuning(self, e_finetuning):
         if self.fine_tuning:
-            self.psi = nn.Parameter(torch.mm(self.P, torch.mean(self.e_finetuning, dim=0)))   # (p_len, 512) * (512, 1) = p_len* 1
+            self.psi = nn.Parameter(torch.mm(self.P, torch.mean(e_finetuning, dim=0)))   # (p_len, 512) * (512, 1) = p_len* 1
     
     def forward(self, landmark, e):
         B = e.size(0)

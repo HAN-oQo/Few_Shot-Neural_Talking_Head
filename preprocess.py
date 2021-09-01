@@ -9,11 +9,11 @@ from torchvision.utils import save_image
 from tqdm import tqdm
 import face_alignment
 from matplotlib import pyplot as plt
-from landmark_utils import *
+from dataloader.landmark_utils import *
 #from .params.params import path_to_mp4, path_to_preprocess
 
-path_to_mp4 = '../data/dev/mp4'
-path_to_preprocess = '../processed_data'
+path_to_mp4 = '/ssd/hankyu/talking_head/Few_Shot-Neural_Talking_Head/data/dev/mp4'
+path_to_preprocess = './processed_data'
 
 K = 8
 
@@ -31,15 +31,19 @@ if not os.path.exists(path_to_preprocess):
 
 num_vid = 0
 for person_id in tqdm(os.listdir(path_to_mp4)):
-    for video_id in tqdm(os.listdir(os.path.join(path_to_mp4, person_id))):
+    for video_id in (os.listdir(os.path.join(path_to_mp4, person_id))):
         for video in os.listdir(os.path.join(path_to_mp4, person_id , video_id)):
             # try:
             video_num = video.split('.')[0]
             video_path = os.path.join(path_to_mp4, person_id, video_id, video)
             pic_path = os.path.join(path_to_preprocess,str(num_vid))
-            
+            print(pic_path)
             if not os.path.exists(pic_path):
                 os.mkdir(pic_path)
+            else:
+                print(str(num_vid)+"exists!")
+                num_vid +=1
+                continue
             
             img_path = os.path.join(pic_path, 'img')
             landmark_path = os.path.join(pic_path, 'landmark')

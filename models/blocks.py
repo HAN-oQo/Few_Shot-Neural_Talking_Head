@@ -68,13 +68,16 @@ class Conv_Layer(nn.Module):
 # convolution 2d layer with spectral noramlization
     def __init__(self, in_channels, out_channels, kernel_size, stride, padding= 0):
         super(Conv_Layer, self).__init__()
-        self.conv = nn.Sequential(
-            nn.ReflectionPad2d(padding),
-            nn.utils.spectral_norm(nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride))
-        )
+        # self.conv = nn.Sequential(
+        #     nn.ReflectionPad2d(padding),
+        #     nn.utils.parametrizations.spectral_norm(nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride))
+        # )
+        self.conv = nn.utils.spectral_norm(nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding = padding))
         
     def forward(self, input):
+        # print(input.size())
         out = self.conv(input)
+        # print(out.size())
         return out
 
 # Large Scale GAN Training for High Fidelity Natural Image Synthesis
@@ -224,11 +227,11 @@ class Residual(nn.Module):
     def __init__(self, in_channels):
         super(Residual, self).__init__()
         
-        self.right = nn.Sequential(
-            Conv_Layer(in_channels=in_channels, out_channels=in_channels, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            Conv_Layer(in_channels=in_channels, out_channels=in_channels, kernel_size=3, stride=1, padding=1)
-        )
+        
+        self.right0 = Conv_Layer(in_channels=in_channels, out_channels=in_channels, kernel_size=3, stride=1, padding=1)
+        self.right1 = nn.ReLU(inplace = False)
+        self.right2 = Conv_Layer(in_channels=in_channels, out_channels=in_channels, kernel_size=3, stride=1, padding=1)
+        
 
         self.left = nn.Sequential(
             nn.Identity()
@@ -237,9 +240,13 @@ class Residual(nn.Module):
 
     def forward(self, input):
         residual = input
-        out = self.right(input)
-        residual = self.left(residual)
-        out = out + residual
+        out0 = self.right0(input)
+        out1 = self.right1(out0)
+        # print(out1.size())
+        out2 = self.right2(out1)
+        # out = self.right(input)
+        # residual = self.left(residual)
+        out = out2 + residual
         return out
 
         
