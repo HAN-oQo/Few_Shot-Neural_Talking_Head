@@ -24,7 +24,7 @@ from training.logger import Logger
 class Trainer():
 
     def __init__(self, device, train,finetuning, directory, dataset, path_to_data, batch_size, size, path_to_finetuning_data, meta_learned_path, meta_learned_model_path, num_vid, num_epoch, resume_epoch, restored_model_path, lr_G, lr_D, weight_decay, beta1, beta2, milestones, scheduler_gamma, g_adv_weight, g_vgg19_weight, g_vggface_weight, g_match_weight, g_fm_weight, d_adv_weight, print_freq, sample_freq, model_save_freq, test_video_path, test_model_path):
-        
+        self.num_gpu = torch.cuda.device_count()
         self.device =device
         print(self.device)
         self.train_bool = train
@@ -38,25 +38,48 @@ class Trainer():
         # Directory Setting
         ###############
         self.directory = directory
-        log_dir = os.path.join(directory, "logs")
-        sample_dir = os.path.join(directory, "samples")
-        result_dir = os.path.join(directory, "results")
-        model_save_dir = os.path.join(directory, "models")
-        if not os.path.exists(os.path.join(directory, "logs")):
-            os.makedirs(log_dir)
-        self.log_dir = log_dir
+        if resume_epoch >0 :
+            log_dir = os.path.join(directory, "logs0")
+            sample_dir = os.path.join(directory, "samples0")
+            result_dir = os.path.join(directory, "results0")
+            model_save_dir = os.path.join(directory, "models0")
+            if not os.path.exists(os.path.join(directory, "logs0")):
+                os.makedirs(log_dir)
+            self.log_dir = log_dir
 
-        if not os.path.exists(os.path.join(directory, "samples")):
-            os.makedirs(sample_dir)
-        self.sample_dir = sample_dir
+            if not os.path.exists(os.path.join(directory, "samples0")):
+                os.makedirs(sample_dir)
+            self.sample_dir = sample_dir
 
-        if not os.path.exists(os.path.join(directory, "results")):
-            os.makedirs(result_dir)
-        self.result_dir = result_dir
+            if not os.path.exists(os.path.join(directory, "results0")):
+                os.makedirs(result_dir)
+            self.result_dir = result_dir
 
-        if not os.path.exists(os.path.join(directory, "models")):
-            os.makedirs(model_save_dir)
-        self.model_save_dir = model_save_dir
+            if not os.path.exists(os.path.join(directory, "models0")):
+                os.makedirs(model_save_dir)
+            self.model_save_dir = model_save_dir
+        else:
+            log_dir = os.path.join(directory, "logs")
+            sample_dir = os.path.join(directory, "samples")
+            result_dir = os.path.join(directory, "results")
+            model_save_dir = os.path.join(directory, "models")
+
+            if not os.path.exists(os.path.join(directory, "logs0")):
+                os.makedirs(log_dir)
+            self.log_dir = log_dir
+
+            if not os.path.exists(os.path.join(directory, "samples")):
+                os.makedirs(sample_dir)
+            self.sample_dir = sample_dir
+
+            if not os.path.exists(os.path.join(directory, "results")):
+                os.makedirs(result_dir)
+            self.result_dir = result_dir
+
+            if not os.path.exists(os.path.join(directory, "models")):
+                os.makedirs(model_save_dir)
+            self.model_save_dir = model_save_dir
+
         self.K = 8
         self.dataset = dataset
         self.path_to_data = path_to_data
@@ -133,17 +156,15 @@ class Trainer():
 
     def build_model(self):
         self.vgg19 = VGG_19()
-        self.vgg19.eval()
-        self.vgg19.to(self.device)
 
         self.vggface = VGG_FACE()
         self.vggface.load_weights()
-        self.vggface.eval()
-        self.vggface.to(self.device)
+
 
         self.E = Embedder(self.curr_size, self.size, "sum")
         self.G = Generator(self.curr_size, self.size, 5, self.finetune_bool)
-        self.D = Discriminator(self.batch_size, self.curr_size, self.size, self.finetune_bool,"sum")
+        self.D = Discriminator(self.batch_size // self.num_gpu, self.curr_size, self.size, self.finetune_bool,"sum")
+        # self.D = Discriminator(4, self.curr_size, self.size, self.finetune_bool,"sum")
 
         self.opt_G = torch.optim.Adam([{"params": self.G.parameters()}, {"params": self.E.parameters()}], lr = self.lr_G, betas = (self.beta1, self.beta2))
         self.opt_D = torch.optim.Adam(self.D.parameters(), lr = self.lr_D, betas = (self.beta1, self.beta2))
@@ -156,9 +177,20 @@ class Trainer():
         self.G.apply(xavier_init)
         self.D.apply(xavier_init)
 
-        self.E.to(self.device)
-        self.G.to(self.device)
-        self.D.to(self.device)
+        self.vgg19 = nn.DataParallel(self.vgg19)
+        self.vggface = nn.DataParallel(self.vggface)
+        # self.E = nn.DataParallel(self.E)
+        # self.G = nn.DataParallel(self.G)
+        # self.D = nn.DataParallel(self.D)
+
+        self.vgg19.eval()
+        self.vggface.eval()
+
+        self.vgg19.to(self.device)
+        self.vggface.to(self.device)
+        # self.E.to(self.device)
+        # self.G.to(self.device)
+        # self.D.to(self.device)
 
         
     def load_model(self, model_path) :
@@ -174,13 +206,28 @@ class Trainer():
 
         self.opt_G.load_state_dict(checkpoint['opt_G'])
         self.opt_D.load_state_dict(checkpoint['opt_D'])
+        
+        # self.E = nn.DataParallel(self.E)
+        # self.G = nn.DataParallel(self.G)
+        # self.D = nn.DataParallel(self.D)
+
+        # self.E.to(self.device)
+        # self.G.to(self.device)
+        # self.D.to(self.device)
+
+        print(self.device)
+        # self.model.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage)
+        
+        return
+    def to_device(self):
+        self.E = nn.DataParallel(self.E)
+        self.G = nn.DataParallel(self.G)
+        self.D = nn.DataParallel(self.D)
 
         self.E.to(self.device)
         self.G.to(self.device)
         self.D.to(self.device)
-        # self.model.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage)
-        
-        return
+
 
     def reset_grad(self):
         """Reset the gradient buffers."""
@@ -236,6 +283,7 @@ class Trainer():
         # W: 512 , B
         # e_vectors: B, K, 512, 1
         B, K, _ , _ = e_vectors.size ()
+        # print(B,K)
         W = W.unsqueeze(-1)         # 512, B, 1
         W = W.expand(512, B, K)     # 512, B, K
         W = W.permute(1, 2, 0).contiguous()    # B, K, 512
@@ -266,23 +314,26 @@ class Trainer():
                 raise(RuntimeError("Resume epoch should be same with that of loaded model"))
             self.global_step = self.epoch * len(self.data_loader)
             self.epoch = self.resume_epoch
+        
+        self.to_device()
 
         print('Start training...')
         start_time = time.time()
         while self.epoch <= self.num_epoch:
             for batch_idx, batch_data in enumerate(self.data_loader):
-                if batch_idx < self.restored_batch_idx:
-                    self.global_step += 1
-                    continue
+                # if batch_idx < self.restored_batch_idx:
+                #     self.global_step += 1
+                #     continue
                 s_img = batch_data[0].to(self.device)
                 s_landmark = batch_data[1].to(self.device) # B, 3, 224, 224 
                 imgs_list = batch_data[2].to(self.device)
                 landmarks_list = batch_data[3].to(self.device) # B, K , 3, 224, 224
-                vid_idx = batch_data[4]
-                Wi = batch_data[5].squeeze(-1).permute(1,0).contiguous().to(self.device).requires_grad_()  #B, 512, 1 -> 512, B
+                vid_idx = batch_data[4].to(self.device)
+                Wi = batch_data[5].to(self.device)
+                # Wi = batch_data[5].squeeze(-1).permute(1,0).contiguous().to(self.device).requires_grad_()  #B, 512, 1 -> 512, B
 
 
-                self.D.load_W_i(Wi)
+                # self.D.load_W_i(Wi)
 
                 B, K, C, H, W = imgs_list.size()
 
@@ -292,14 +343,14 @@ class Trainer():
                 ## train D twice,
                 with torch.autograd.set_detect_anomaly(True):
                     with torch.autograd.detect_anomaly():
-                        e = self.E(imgs, landmarks) # extract style of imgs , B*K, 512, 1
-                        e = e.view(B, K, -1, 1) # B, K, 512, 1
-                        e_mean = torch.mean(e, dim = 1)
+                        e, e_mean = self.E(imgs, landmarks, K) # extract style of imgs , B*K, 512, 1
+                        # e = e.view(B, K, -1, 1) # B, K, 512, 1
+                        # e_mean = torch.mean(e, dim = 1)
                         s_fake = self.G(s_landmark, e_mean.detach())
                         
                         ## train D stage 1 
-                        real_score, real_disc_feats = self.D(s_img, s_landmark)
-                        fake_score, fake_disc_feats = self.D(s_fake.detach(), s_landmark)
+                        real_score, real_disc_feats , _= self.D(s_img, s_landmark, vid_idx, Wi)
+                        fake_score, fake_disc_feats, _ = self.D(s_fake.detach(), s_landmark, vid_idx, Wi)
                     
                         d_loss_real, d_loss_fake = self.Loss_D(real_score, fake_score)
                         d_loss = (d_loss_real + d_loss_fake)
@@ -309,8 +360,8 @@ class Trainer():
 
                 ## train D stage 2
 
-                real_score, real_disc_feats = self.D(s_img, s_landmark)
-                fake_score, fake_disc_feats = self.D(s_fake.detach(), s_landmark)
+                real_score, real_disc_feats, _= self.D(s_img, s_landmark, vid_idx, Wi)
+                fake_score, fake_disc_feats, _ = self.D(s_fake.detach(), s_landmark, vid_idx, Wi)
 
                 d_loss_real, d_loss_fake = self.Loss_D(real_score, fake_score)
                 d_loss = (d_loss_real + d_loss_fake)
@@ -327,13 +378,16 @@ class Trainer():
                 ## train E,G
                 
                 s_fake = self.G(s_landmark, e_mean)
-                real_score, real_disc_feats = self.D(s_img, s_landmark)
-                fake_score, fake_disc_feats = self.D(s_fake, s_landmark)
-
+                real_score, real_disc_feats, _ = self.D(s_img, s_landmark, vid_idx, Wi)
+                fake_score, fake_disc_feats, W_i = self.D(s_fake, s_landmark, vid_idx, Wi)
+                W_i = W_i.transpose(0,1).contiguous() 
+                # print(W_i.size())
+                # print(e.size())
                 g_loss_adv = self.Loss_G_Adv(fake_score)
                 g_loss_fm = self.Loss_FM(real_disc_feats, fake_disc_feats)
                 g_loss_cnt = self.Loss_CNT(s_img, s_fake)
-                g_loss_mch = self.Loss_MCH(e, Wi)
+                g_loss_mch = self.Loss_MCH(e, W_i)
+                # print(W_i.size())
                 
                 g_loss = g_loss_adv + g_loss_fm + g_loss_cnt + g_loss_mch
 
@@ -348,7 +402,7 @@ class Trainer():
                 loss['G/loss_total'] = g_loss.item()
 
                 for enum, idx in enumerate(vid_idx):
-                    torch.save({'W_i': self.D.W_i[:,enum].unsqueeze(-1)}, self.Wi_save_dir+'/W_'+str(idx.item())+'/W_'+str(idx.item())+'.pt')
+                    torch.save({'W_i': W_i[:,enum].unsqueeze(-1)}, self.Wi_save_dir+'/W_'+str(idx.item())+'/W_'+str(idx.item())+'.pt')
                     
 
                 if self.global_step % self.print_freq == 0:
@@ -364,9 +418,9 @@ class Trainer():
                 if self.global_step % self.sample_freq == 0:
                     with torch.no_grad():
                         fake_list = [s_img_fixed]
-                        e_fixed= self.E(imgs_fixed, landmarks_fixed) # extract style of imgs , B*K, 512, 1
-                        e_fixed = e_fixed.view(B, K, -1, 1) # B, K, 512, 1
-                        e_mean_fixed = torch.mean(e_fixed, dim = 1)
+                        e_fixed, e_mean_fixed= self.E(imgs_fixed, landmarks_fixed, K) # extract style of imgs , B*K, 512, 1
+                        # e_fixed = e_fixed.view(B, K, -1, 1) # B, K, 512, 1
+                        # e_mean_fixed = torch.mean(e_fixed, dim = 1)
                         s_fake = self.G(s_landmark_fixed, e_mean_fixed)
                         fake_list.append(s_fake) # B 
                         

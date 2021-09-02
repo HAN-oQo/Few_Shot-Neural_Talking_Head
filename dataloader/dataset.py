@@ -23,8 +23,8 @@ class Voxceleb2(data.Dataset):
         print(self.vid_data_path[0])
 
     def prepare(self):
-        print("Check Validity of data..")
-        check_img_length(self.K, self.path_to_data)
+        #print("Check Validity of data..")
+        #check_img_length(self.K, self.path_to_data)
 
         if self.train:
             if not self.finetuning:

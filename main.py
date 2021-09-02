@@ -7,9 +7,9 @@ import torch.backends.cudnn as cudnn
 
 from training.training import Trainer
 
-
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-CUDA_LAUNCH_BLOCKKING =1
+gpu_devices = ','.join([str(id) for id in range(torch.cuda.device_count())])
+os.environ["CUDA_VISIBLE_DEVICES"] = gpu_devices
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # Get config file from command line arguments
 if len(sys.argv) != 2:
     raise(RuntimeError("Wrong arguments, use python main.py <config_path>"))
@@ -20,15 +20,15 @@ with open(config_path) as f:
     config = json.load(f)
 
 # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-if torch.cuda.is_available():
-    if config["gpu"] == 0:
-        device = 'cuda:0'
-    if config["gpu"] == 1:
-        device = 'cuda:1'
-    else:
-        device = 'cuda'
-else:
-    device = 'cpu'
+# if torch.cuda.is_available():
+#     if config["gpu"] == 0:
+#         device = 'cuda:0'
+#     if config["gpu"] == 1:
+#         device = 'cuda:1'
+#     else:
+#         device = 'cuda'
+# else:
+#     device = 'cpu'
 
 print(device)
 
@@ -38,14 +38,20 @@ if config["path_to_data"] == "":
 #
 if config["train"] == 1 :
     # Create a folder to store experiment results
-    timestamp = time.strftime("%Y-%m-%d_%H-%M")
-    directory = "{}_{}".format(timestamp, config["id"])
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    if config["training"]["restored_path"] != "":
+        directory = config["training"]["restored_path"]
+        # Save config file in experiment directory
+        with open(directory + '/config_restart.json', 'w') as f:
+            json.dump(config, f)
+    else:
+        timestamp = time.strftime("%Y-%m-%d_%H-%M")
+        directory = "{}_{}".format(timestamp, config["id"])
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
-    # Save config file in experiment directory
-    with open(directory + '/config.json', 'w') as f:
-        json.dump(config, f)
+        # Save config file in experiment directory
+        with open(directory + '/config.json', 'w') as f:
+            json.dump(config, f)
 
 elif config["train"] == 2:
     directory = config["finetuning"]["meta_learned_path"]

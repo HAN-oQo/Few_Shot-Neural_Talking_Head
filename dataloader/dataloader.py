@@ -21,7 +21,7 @@ def load_dataloader(dataset='Voxceleb2', path_to_data= '/ssd/hankyu/talking_head
         if not finetuning:
             Data_Set = Voxceleb2(path_to_data= path_to_data, path_to_Wi = path_to_Wi, K=K, train = train, finetuning = finetuning, transforms = all_transforms, num_vid= num_vid)
             print(len(Data_Set))
-            data_loader = data.DataLoader(Data_Set, batch_size = batch_size, shuffle = True,  num_workers = 2, drop_last= True)
+            data_loader = data.DataLoader(Data_Set, batch_size = batch_size, shuffle = True,  num_workers = 5, drop_last= True)
             return data_loader, len(Data_Set)
         else:
             Data_Set = Finetune_Voxceleb2(path_to_data = path_to_data, transforms = all_transforms, vid_idx= num_vid)

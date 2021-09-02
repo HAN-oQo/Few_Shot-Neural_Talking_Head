@@ -69,6 +69,8 @@ for person_id in tqdm(os.listdir(path_to_mp4)):
 
             
                 num_vid += 1
+
+                
                 
             else:
                 print("# of selected frames is wrong!")

@@ -39,8 +39,11 @@ class Discriminator(nn.Module):
         if self.fine_tuning:
             self.w_prime = nn.Parameter(self.w_0 + torch.mean(e_finetuning, dim=0))
     
-    def forward(self, img, landmark):
+    def forward(self, img, landmark, vid_idx, Wi):
         B = img.size(0)
+        W_i = Wi.squeeze(-1).permute(1,0).contiguous().requires_grad_()
+        # print(W_i.size())
+        self.load_W_i(W_i)
         new_input = torch.cat((img, landmark), dim=1)
         new_input = self.init_padding(new_input)
         
@@ -61,5 +64,4 @@ class Discriminator(nn.Module):
             score = torch.bmm(out.permute(0, 2, 1), (self.w_prime.unsqueeze(0).expand(B, 512, 1))) + self.b
         else:
             score = torch.bmm(out.permute(0, 2, 1), (self.W_i.unsqueeze(-1).permute(1, 0, 2) + self.w_0)) + self.b
-
-        return score, [out0, out1, out2, out4, out5, out6, out7]
+        return score, [out0, out1, out2, out4, out5, out6, out7], self.W_i.transpose(0,1).contiguous() 
